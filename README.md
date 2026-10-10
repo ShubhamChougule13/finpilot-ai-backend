@@ -1,6 +1,4 @@
 # FinPilot AI Backend 🤖💰
-![Java](httpshields.io/badge/Java-24-orange ![tps://img.shields.io/badge/Spring_Boot-4.1.1-green ![tps://img.shields.io/badge/MySQL-Database-blue ![JWT](httpsshields.io/badge/JWT-Authentication-red ![Gemini AI](https://img.shieldsini-AI-purple
-**An AI-powered personal finance management backend built with Java, Spring Boot, Spring Security, JWT, MySQL, and Google Gemini AI.**
 
 FinPilot AI helps users track their income and expenses, manage budgets and financial goals, understand spending patterns, and receive AI-generated financial insights.
 
