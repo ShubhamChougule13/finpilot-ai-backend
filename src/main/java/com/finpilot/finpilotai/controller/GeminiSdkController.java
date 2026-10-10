@@ -3,6 +3,7 @@ package com.finpilot.finpilotai.controller;
 import com.finpilot.finpilotai.service.GeminiSdkService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.finpilot.finpilotai.dto.GeminiResponse;
 
 @RestController
 public class GeminiSdkController {
@@ -15,8 +16,8 @@ public class GeminiSdkController {
         this.geminiSdkService = geminiSdkService;
     }
 
-    @GetMapping("/gemini-sdk-test")
-    public String testGemini() {
+    @GetMapping("/ai-advice")
+    public GeminiResponse getAiAdvice() {
 
         return geminiSdkService.testGemini();
     }

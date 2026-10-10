@@ -16,7 +16,7 @@ public class GeminiController {
         this.geminiService = geminiService;
     }
 
-    @GetMapping("/ai-advice")
+    @GetMapping("/old-ai-advice")
     public GeminiResponse getAdvice() {
 
         return geminiService.getAdvice();
