@@ -1,16 +1,17 @@
+
 package com.finpilot.finpilotai.service;
 
 import com.finpilot.finpilotai.dto.BudgetRequest;
+import com.finpilot.finpilotai.dto.BudgetStatusResponse;
 import com.finpilot.finpilotai.entity.Budget;
+import com.finpilot.finpilotai.entity.Expense;
 import com.finpilot.finpilotai.entity.User;
 import com.finpilot.finpilotai.repository.BudgetRepository;
+import com.finpilot.finpilotai.repository.ExpenseRepository;
 import com.finpilot.finpilotai.repository.UserRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import com.finpilot.finpilotai.dto.BudgetStatusResponse;
-import com.finpilot.finpilotai.entity.Expense;
-import com.finpilot.finpilotai.repository.ExpenseRepository;
 
 import java.util.List;
 import java.util.Optional;
@@ -35,13 +36,11 @@ public class BudgetService {
     public String addBudget(BudgetRequest request) {
 
         Authentication authentication =
-                SecurityContextHolder.getContext()
-                        .getAuthentication();
+                SecurityContextHolder.getContext().getAuthentication();
 
         String email = authentication.getName();
 
-        Optional<User> user =
-                userRepository.findByEmail(email);
+        Optional<User> user = userRepository.findByEmail(email);
 
         if (user.isEmpty()) {
             return "User Not Found";
@@ -49,12 +48,8 @@ public class BudgetService {
 
         Budget budget = new Budget();
 
-        budget.setMonthlyBudget(
-                request.getMonthlyBudget());
-
-        budget.setDescription(
-                request.getDescription());
-
+        budget.setMonthlyBudget(request.getMonthlyBudget());
+        budget.setDescription(request.getDescription());
         budget.setUser(user.get());
 
         budgetRepository.save(budget);
@@ -65,13 +60,11 @@ public class BudgetService {
     public List<Budget> getMyBudget() {
 
         Authentication authentication =
-                SecurityContextHolder.getContext()
-                        .getAuthentication();
+                SecurityContextHolder.getContext().getAuthentication();
 
         String email = authentication.getName();
 
-        Optional<User> user =
-                userRepository.findByEmail(email);
+        Optional<User> user = userRepository.findByEmail(email);
 
         if (user.isEmpty()) {
             return List.of();
@@ -83,26 +76,24 @@ public class BudgetService {
     public BudgetStatusResponse getBudgetStatus() {
 
         Authentication authentication =
-                SecurityContextHolder.getContext()
-                        .getAuthentication();
+                SecurityContextHolder.getContext().getAuthentication();
 
         String email = authentication.getName();
 
-        Optional<User> user =
-                userRepository.findByEmail(email);
+        Optional<User> user = userRepository.findByEmail(email);
 
         if (user.isEmpty()) {
             return new BudgetStatusResponse();
         }
 
-        List<Budget> budgets =
-                budgetRepository.findByUser(user.get());
+        Optional<Budget> latestBudget =
+                budgetRepository.findFirstByUserOrderByIdDesc(user.get());
 
-        if (budgets.isEmpty()) {
+        if (latestBudget.isEmpty()) {
             return new BudgetStatusResponse();
         }
 
-        Budget budget = budgets.get(0);
+        Budget budget = latestBudget.get();
 
         List<Expense> expenses =
                 expenseRepository.findByUser(user.get());
@@ -116,18 +107,35 @@ public class BudgetService {
         double remainingBudget =
                 budget.getMonthlyBudget() - spentAmount;
 
-        BudgetStatusResponse response =
-                new BudgetStatusResponse();
+        BudgetStatusResponse response = new BudgetStatusResponse();
 
-        response.setMonthlyBudget(
-                budget.getMonthlyBudget());
-
-        response.setSpentAmount(
-                spentAmount);
-
-        response.setRemainingBudget(
-                remainingBudget);
+        response.setMonthlyBudget(budget.getMonthlyBudget());
+        response.setSpentAmount(spentAmount);
+        response.setRemainingBudget(remainingBudget);
 
         return response;
+    }
+
+    public String deleteBudget(Long id) {
+
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        String email = authentication.getName();
+
+        Optional<User> user = userRepository.findByEmail(email);
+
+        if (user.isEmpty()) {
+            throw new RuntimeException("User not found");
+        }
+
+        Budget budget = budgetRepository.findByIdAndUser(id, user.get())
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Budget not found or access denied"));
+
+        budgetRepository.delete(budget);
+
+        return "Budget deleted successfully";
     }
 }

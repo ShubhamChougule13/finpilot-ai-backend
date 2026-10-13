@@ -1,3 +1,4 @@
+
 package com.finpilot.finpilotai.service;
 
 import com.finpilot.finpilotai.dto.DashboardResponse;
@@ -45,8 +46,7 @@ public class DashboardService {
     public DashboardResponse getDashboard() {
 
         Authentication authentication =
-                SecurityContextHolder.getContext()
-                        .getAuthentication();
+                SecurityContextHolder.getContext().getAuthentication();
 
         String email = authentication.getName();
 
@@ -74,14 +74,11 @@ public class DashboardService {
             totalExpense += expense.getAmount();
         }
 
-        DashboardResponse response =
-                new DashboardResponse();
+        DashboardResponse response = new DashboardResponse();
 
         response.setTotalIncome(totalIncome);
         response.setTotalExpense(totalExpense);
-        response.setSavings(
-                totalIncome - totalExpense
-        );
+        response.setSavings(totalIncome - totalExpense);
 
         return response;
     }
@@ -89,8 +86,7 @@ public class DashboardService {
     public EnhancedDashboardResponse getEnhancedDashboard() {
 
         Authentication authentication =
-                SecurityContextHolder.getContext()
-                        .getAuthentication();
+                SecurityContextHolder.getContext().getAuthentication();
 
         String email = authentication.getName();
 
@@ -101,11 +97,13 @@ public class DashboardService {
             return new EnhancedDashboardResponse();
         }
 
+        User currentUser = user.get();
+
         List<Income> incomes =
-                incomeRepository.findByUser(user.get());
+                incomeRepository.findByUser(currentUser);
 
         List<Expense> expenses =
-                expenseRepository.findByUser(user.get());
+                expenseRepository.findByUser(currentUser);
 
         double totalIncome = 0;
         double totalExpense = 0;
@@ -118,36 +116,39 @@ public class DashboardService {
             totalExpense += expense.getAmount();
         }
 
-        double savings =
-                totalIncome - totalExpense;
+        double savings = totalIncome - totalExpense;
 
         double goalProgress = 0;
         double monthlyBudget = 0;
         double remainingBudget = 0;
 
         List<Goal> goals =
-                goalRepository.findByUser(user.get());
+                goalRepository.findByUser(currentUser);
 
         if (!goals.isEmpty()) {
 
             Goal goal = goals.get(0);
 
-            goalProgress =
-                    (savings / goal.getTargetAmount()) * 100;
+            if (goal.getTargetAmount() != null
+                    && goal.getTargetAmount() > 0) {
+
+                goalProgress =
+                        (savings / goal.getTargetAmount()) * 100;
+
+                goalProgress = Math.min(goalProgress, 100);
+            }
         }
 
-        List<Budget> budgets =
-                budgetRepository.findByUser(user.get());
+        Optional<Budget> latestBudget =
+                budgetRepository.findFirstByUserOrderByIdDesc(currentUser);
 
-        if (!budgets.isEmpty()) {
+        if (latestBudget.isPresent()) {
 
-            Budget budget = budgets.get(0);
+            Budget budget = latestBudget.get();
 
-            monthlyBudget =
-                    budget.getMonthlyBudget();
+            monthlyBudget = budget.getMonthlyBudget();
 
-            remainingBudget =
-                    monthlyBudget - totalExpense;
+            remainingBudget = monthlyBudget - totalExpense;
         }
 
         EnhancedDashboardResponse response =
