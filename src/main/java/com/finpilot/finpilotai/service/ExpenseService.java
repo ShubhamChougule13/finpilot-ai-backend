@@ -1,4 +1,5 @@
-package com.finpilot.finpilotai.service;
+
+        package com.finpilot.finpilotai.service;
 
 import com.finpilot.finpilotai.dto.ExpenseRequest;
 import com.finpilot.finpilotai.entity.Expense;
@@ -9,6 +10,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -47,6 +49,13 @@ public class ExpenseService {
         expense.setAmount(request.getAmount());
         expense.setCategory(request.getCategory());
         expense.setDescription(request.getDescription());
+
+        // Use the supplied date, or today's date if omitted.
+        expense.setExpenseDate(
+                request.getExpenseDate() != null
+                        ? request.getExpenseDate()
+                        : LocalDate.now()
+        );
 
         expense.setUser(user.get());
 
@@ -153,6 +162,12 @@ public class ExpenseService {
 
         existingExpense.setDescription(
                 request.getDescription());
+
+        // Change the date only when one is supplied.
+        if (request.getExpenseDate() != null) {
+            existingExpense.setExpenseDate(
+                    request.getExpenseDate());
+        }
 
         expenseRepository.save(existingExpense);
 

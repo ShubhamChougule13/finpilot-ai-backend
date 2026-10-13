@@ -1,3 +1,4 @@
+
 package com.finpilot.finpilotai.service;
 
 import com.finpilot.finpilotai.dto.IncomeRequest;
@@ -47,8 +48,16 @@ public class IncomeService {
         income.setAmount(request.getAmount());
         income.setDescription(request.getDescription());
 
+        // Use the supplied date, or today's date if omitted.
+        income.setIncomeDate(
+                request.getIncomeDate() != null
+                        ? request.getIncomeDate()
+                        : java.time.LocalDate.now()
+        );
+
         income.setUser(user.get());
 
+        // Save the income to the database.
         incomeRepository.save(income);
 
         return "Income Added Successfully";
@@ -116,6 +125,12 @@ public class IncomeService {
 
         existingIncome.setDescription(
                 request.getDescription());
+
+        // Update the date only when a new date is supplied.
+        if (request.getIncomeDate() != null) {
+            existingIncome.setIncomeDate(
+                    request.getIncomeDate());
+        }
 
         incomeRepository.save(existingIncome);
 

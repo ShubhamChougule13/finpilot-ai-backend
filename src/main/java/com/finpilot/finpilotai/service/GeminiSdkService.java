@@ -26,8 +26,6 @@ public class GeminiSdkService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-
-
     private static final Set<String> ALLOWED_CATEGORIES = Set.of(
             "Food",
             "Transport",
@@ -41,7 +39,6 @@ public class GeminiSdkService {
             "Other"
     );
 
-
     public GeminiSdkService(
             DashboardService dashboardService,
             ReportService reportService) {
@@ -50,40 +47,78 @@ public class GeminiSdkService {
         this.reportService = reportService;
     }
 
-    // Existing AI financial recommendations — preserved
+    // Existing AI financial recommendations — monthly figures
     public GeminiResponse testGemini() {
 
         EnhancedDashboardResponse dashboard =
                 dashboardService.getEnhancedDashboard();
 
         TopCategoryResponse topCategory =
-                reportService.getTopCategory();
-
+                reportService.getMonthlyTopCategory();
         String prompt = """
-                You are an expert financial advisor.
+            You are a careful, practical personal finance coach.
 
-                Analyze the following financial data and provide
-                3 short personalized recommendations.
+            Analyze the supplied financial data and return exactly
+            3 numbered, personalized, actionable recommendations.
 
-                Income: %s
-                Expense: %s
-                Savings: %s
-                Goal Progress: %s%%
-                Monthly Budget: %s
-                Remaining Budget: %s
-                Top Spending Category: %s
-                Top Spending Amount: %s
+            IMPORTANT DATA CONTEXT:
+            - Total Income, Total Expenses, Savings, Monthly Budget,
+              and Remaining Budget below are CURRENT-MONTH figures.
+            - The top spending category and amount currently come from
+              ALL-TIME expense records, not necessarily this month.
+            - Therefore, do not compare the top category amount with
+              current-month expenses or describe it as a monthly amount.
+            - Some older transactions have no recorded date and are
+              excluded from monthly totals.
+            - Do not assume current-month income represents all possible
+              income sources or that the budget must be reduced to income.
 
-                Keep the advice concise and practical.
-                """.formatted(
+            CURRENT-MONTH FINANCIAL DATA:
+            Income: %s
+            Expenses: %s
+            Savings (income minus expenses): %s
+            Goal Progress: %s%%
+            Monthly Budget: %s
+            Remaining Budget: %s
+
+                CURRENT-MONTH TOP SPENDING CATEGORY:
+                Top Category: %s
+                Top Category Amount: %s
+
+            REQUIREMENTS:
+            1. Return exactly 3 numbered recommendations.
+            2. Base financial calculations only on the supplied figures.
+            3. If savings are negative, explain that expenses exceed income.
+            4. If remaining budget is negative, explain that the budget
+               has been exceeded and suggest a practical next step.
+            5. If remaining budget is non-negative, do not claim that
+               the budget has been exceeded.
+            6. Do not recommend reducing the budget solely because it
+               exceeds the reported current-month income.
+            7. The top category is an all-time observation. Mention it
+               only with that qualification; do not assume it is
+               unnecessary spending or a current-month trend.
+            8. Do not invent transactions, dates, trends, or missing data.
+            9. If the data is insufficient for a specific conclusion,
+               state the limitation and give a cautious recommendation.
+            10. Keep recommendations concise, practical, and educational.
+            11. Do not guarantee financial outcomes.
+
+            OUTPUT FORMAT:
+            1. [Observation and specific action]
+            2. [Observation and specific action]
+            3. [Observation and specific action]
+
+            Return only the 3 numbered recommendations.
+            """.formatted(
                 dashboard.getTotalIncome(),
                 dashboard.getTotalExpense(),
                 dashboard.getSavings(),
                 dashboard.getGoalProgress(),
                 dashboard.getMonthlyBudget(),
                 dashboard.getRemainingBudget(),
-                topCategory.getCategory(),
-                topCategory.getAmount()
+                topCategory != null ? topCategory.getCategory() : "Unavailable",
+                topCategory != null ? topCategory.getAmount() : "Unavailable"
         );
 
         Client client = Client.builder()
@@ -102,8 +137,7 @@ public class GeminiSdkService {
 
         return geminiResponse;
     }
-
-    // New AI Coach feature: extract an expense draft only
+    // AI Coach feature: extract an expense draft only.
     // This method does NOT save anything to the database.
     public AIExpenseDraftResponse createExpenseDraft(
             AIExpenseDraftRequest request) {
@@ -186,8 +220,7 @@ public class GeminiSdkService {
                     .replaceAll("\\s*```$", "")
                     .trim();
 
-            JsonNode json =
-                    objectMapper.readTree(responseText);
+            JsonNode json = objectMapper.readTree(responseText);
 
             if (json == null || !json.isObject()) {
                 draft.setMessage(

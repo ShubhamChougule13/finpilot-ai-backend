@@ -17,6 +17,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,6 +44,7 @@ public class DashboardService {
         this.budgetRepository = budgetRepository;
     }
 
+    // Existing dashboard: all-time totals remain unchanged.
     public DashboardResponse getDashboard() {
 
         Authentication authentication =
@@ -67,11 +69,13 @@ public class DashboardService {
         double totalExpense = 0;
 
         for (Income income : incomes) {
-            totalIncome += income.getAmount();
+            totalIncome += income.getAmount() != null
+                    ? income.getAmount() : 0.0;
         }
 
         for (Expense expense : expenses) {
-            totalExpense += expense.getAmount();
+            totalExpense += expense.getAmount() != null
+                    ? expense.getAmount() : 0.0;
         }
 
         DashboardResponse response = new DashboardResponse();
@@ -83,6 +87,7 @@ public class DashboardService {
         return response;
     }
 
+    // Enhanced dashboard: monthly income and expenses.
     public EnhancedDashboardResponse getEnhancedDashboard() {
 
         Authentication authentication =
@@ -99,28 +104,46 @@ public class DashboardService {
 
         User currentUser = user.get();
 
-        List<Income> incomes =
-                incomeRepository.findByUser(currentUser);
+        // Current calendar month: start inclusive, next month exclusive.
+        LocalDate startDate =
+                LocalDate.now().withDayOfMonth(1);
 
-        List<Expense> expenses =
-                expenseRepository.findByUser(currentUser);
+        LocalDate endDate =
+                startDate.plusMonths(1);
+
+        List<Income> monthlyIncomes =
+                incomeRepository
+                        .findByUserAndIncomeDateGreaterThanEqualAndIncomeDateLessThan(
+                                currentUser,
+                                startDate,
+                                endDate
+                        );
+
+        List<Expense> monthlyExpenses =
+                expenseRepository
+                        .findByUserAndExpenseDateGreaterThanEqualAndExpenseDateLessThan(
+                                currentUser,
+                                startDate,
+                                endDate
+                        );
 
         double totalIncome = 0;
         double totalExpense = 0;
 
-        for (Income income : incomes) {
-            totalIncome += income.getAmount();
+        for (Income income : monthlyIncomes) {
+            totalIncome += income.getAmount() != null
+                    ? income.getAmount() : 0.0;
         }
 
-        for (Expense expense : expenses) {
-            totalExpense += expense.getAmount();
+        for (Expense expense : monthlyExpenses) {
+            totalExpense += expense.getAmount() != null
+                    ? expense.getAmount() : 0.0;
         }
 
         double savings = totalIncome - totalExpense;
 
+        // Preserve the existing goal-progress calculation.
         double goalProgress = 0;
-        double monthlyBudget = 0;
-        double remainingBudget = 0;
 
         List<Goal> goals =
                 goalRepository.findByUser(currentUser);
@@ -129,9 +152,10 @@ public class DashboardService {
 
             Goal goal = goals.get(0);
 
-            double savedAmount = goal.getSavedAmount() != null
-                    ? goal.getSavedAmount()
-                    : 0.0;
+            double savedAmount =
+                    goal.getSavedAmount() != null
+                            ? goal.getSavedAmount()
+                            : 0.0;
 
             if (goal.getTargetAmount() != null
                     && goal.getTargetAmount() > 0) {
@@ -143,6 +167,10 @@ public class DashboardService {
             }
         }
 
+        // Compare this month's expenses against the monthly budget.
+        double monthlyBudget = 0;
+        double remainingBudget = 0;
+
         Optional<Budget> latestBudget =
                 budgetRepository.findFirstByUserOrderByIdDesc(currentUser);
 
@@ -150,7 +178,9 @@ public class DashboardService {
 
             Budget budget = latestBudget.get();
 
-            monthlyBudget = budget.getMonthlyBudget();
+            monthlyBudget = budget.getMonthlyBudget() != null
+                    ? budget.getMonthlyBudget()
+                    : 0.0;
 
             remainingBudget = monthlyBudget - totalExpense;
         }
