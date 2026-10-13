@@ -18,6 +18,9 @@ public class Goal {
 
     private Double targetAmount;
 
+    @Column
+    private Double savedAmount = 0.0;
+
     private String description;
 
     @ManyToOne

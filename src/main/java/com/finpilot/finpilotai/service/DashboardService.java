@@ -129,11 +129,15 @@ public class DashboardService {
 
             Goal goal = goals.get(0);
 
+            double savedAmount = goal.getSavedAmount() != null
+                    ? goal.getSavedAmount()
+                    : 0.0;
+
             if (goal.getTargetAmount() != null
                     && goal.getTargetAmount() > 0) {
 
                 goalProgress =
-                        (savings / goal.getTargetAmount()) * 100;
+                        (savedAmount / goal.getTargetAmount()) * 100;
 
                 goalProgress = Math.min(goalProgress, 100);
             }

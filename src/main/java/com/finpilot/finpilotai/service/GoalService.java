@@ -1,10 +1,9 @@
-package com.finpilot.finpilotai.service;
+
+        package com.finpilot.finpilotai.service;
 
 import com.finpilot.finpilotai.dto.GoalProgressResponse;
 import com.finpilot.finpilotai.dto.GoalRequest;
-import com.finpilot.finpilotai.entity.Expense;
 import com.finpilot.finpilotai.entity.Goal;
-import com.finpilot.finpilotai.entity.Income;
 import com.finpilot.finpilotai.entity.User;
 import com.finpilot.finpilotai.repository.ExpenseRepository;
 import com.finpilot.finpilotai.repository.GoalRepository;
@@ -40,24 +39,33 @@ public class GoalService {
     public String addGoal(GoalRequest request) {
 
         Authentication authentication =
-                SecurityContextHolder.getContext()
-                        .getAuthentication();
+                SecurityContextHolder.getContext().getAuthentication();
 
         String email = authentication.getName();
 
-        Optional<User> user =
-                userRepository.findByEmail(email);
+        Optional<User> user = userRepository.findByEmail(email);
 
         if (user.isEmpty()) {
             return "User Not Found";
+        }
+
+        String validationError = validateAmounts(request);
+        if (validationError != null) {
+            return validationError;
         }
 
         Goal goal = new Goal();
 
         goal.setGoalName(request.getGoalName());
         goal.setTargetAmount(request.getTargetAmount());
-        goal.setDescription(request.getDescription());
 
+        goal.setSavedAmount(
+                request.getSavedAmount() != null
+                        ? request.getSavedAmount()
+                        : 0.0
+        );
+
+        goal.setDescription(request.getDescription());
         goal.setUser(user.get());
 
         goalRepository.save(goal);
@@ -68,40 +76,42 @@ public class GoalService {
     public List<Goal> getMyGoals() {
 
         Authentication authentication =
-                SecurityContextHolder.getContext()
-                        .getAuthentication();
+                SecurityContextHolder.getContext().getAuthentication();
 
         String email = authentication.getName();
 
-        Optional<User> user =
-                userRepository.findByEmail(email);
+        Optional<User> user = userRepository.findByEmail(email);
 
         if (user.isEmpty()) {
             return List.of();
         }
 
-        return goalRepository.findByUser(user.get());
+        List<Goal> goals = goalRepository.findByUser(user.get());
+
+        // Handle existing database records with NULL saved amounts.
+        for (Goal goal : goals) {
+            if (goal.getSavedAmount() == null) {
+                goal.setSavedAmount(0.0);
+            }
+        }
+
+        return goals;
     }
 
-    public String updateGoal(
-            Long id,
-            GoalRequest request) {
+    public String updateGoal(Long id, GoalRequest request) {
 
         Authentication authentication =
-                SecurityContextHolder.getContext()
-                        .getAuthentication();
+                SecurityContextHolder.getContext().getAuthentication();
 
         String email = authentication.getName();
 
-        Optional<User> user =
-                userRepository.findByEmail(email);
+        Optional<User> user = userRepository.findByEmail(email);
 
         if (user.isEmpty()) {
             return "User Not Found";
         }
 
-        Optional<Goal> goal =
-                goalRepository.findById(id);
+        Optional<Goal> goal = goalRepository.findById(id);
 
         if (goal.isEmpty()) {
             return "Goal Not Found";
@@ -113,20 +123,25 @@ public class GoalService {
             return "Goal Owner Not Found";
         }
 
-        if (existingGoal.getUser().getId()
-                != user.get().getId()) {
-
+        if (existingGoal.getUser().getId() != user.get().getId()) {
             return "Unauthorized Access";
         }
 
-        existingGoal.setGoalName(
-                request.getGoalName());
+        String validationError = validateAmounts(request);
+        if (validationError != null) {
+            return validationError;
+        }
 
-        existingGoal.setTargetAmount(
-                request.getTargetAmount());
+        existingGoal.setGoalName(request.getGoalName());
+        existingGoal.setTargetAmount(request.getTargetAmount());
 
-        existingGoal.setDescription(
-                request.getDescription());
+        if (request.getSavedAmount() != null) {
+            existingGoal.setSavedAmount(request.getSavedAmount());
+        } else if (existingGoal.getSavedAmount() == null) {
+            existingGoal.setSavedAmount(0.0);
+        }
+
+        existingGoal.setDescription(request.getDescription());
 
         goalRepository.save(existingGoal);
 
@@ -136,20 +151,17 @@ public class GoalService {
     public String deleteGoal(Long id) {
 
         Authentication authentication =
-                SecurityContextHolder.getContext()
-                        .getAuthentication();
+                SecurityContextHolder.getContext().getAuthentication();
 
         String email = authentication.getName();
 
-        Optional<User> user =
-                userRepository.findByEmail(email);
+        Optional<User> user = userRepository.findByEmail(email);
 
         if (user.isEmpty()) {
             return "User Not Found";
         }
 
-        Optional<Goal> goal =
-                goalRepository.findById(id);
+        Optional<Goal> goal = goalRepository.findById(id);
 
         if (goal.isEmpty()) {
             return "Goal Not Found";
@@ -161,9 +173,7 @@ public class GoalService {
             return "Goal Owner Not Found";
         }
 
-        if (existingGoal.getUser().getId()
-                != user.get().getId()) {
-
+        if (existingGoal.getUser().getId() != user.get().getId()) {
             return "Unauthorized Access";
         }
 
@@ -172,23 +182,43 @@ public class GoalService {
         return "Goal Deleted Successfully";
     }
 
+    private String validateAmounts(GoalRequest request) {
+
+        if (request.getTargetAmount() == null
+                || request.getTargetAmount() <= 0) {
+            return "Target amount must be greater than zero";
+        }
+
+        if (request.getSavedAmount() != null
+                && request.getSavedAmount() < 0) {
+            return "Saved amount cannot be negative";
+        }
+
+        double savedAmount = request.getSavedAmount() != null
+                ? request.getSavedAmount()
+                : 0.0;
+
+        if (savedAmount > request.getTargetAmount()) {
+            return "Saved amount cannot exceed target amount";
+        }
+
+        return null;
+    }
+
     public GoalProgressResponse getGoalProgress() {
 
         Authentication authentication =
-                SecurityContextHolder.getContext()
-                        .getAuthentication();
+                SecurityContextHolder.getContext().getAuthentication();
 
         String email = authentication.getName();
 
-        Optional<User> user =
-                userRepository.findByEmail(email);
+        Optional<User> user = userRepository.findByEmail(email);
 
         if (user.isEmpty()) {
             return new GoalProgressResponse();
         }
 
-        List<Goal> goals =
-                goalRepository.findByUser(user.get());
+        List<Goal> goals = goalRepository.findByUser(user.get());
 
         if (goals.isEmpty()) {
             return new GoalProgressResponse();
@@ -196,44 +226,24 @@ public class GoalService {
 
         Goal goal = goals.get(0);
 
-        List<Income> incomes =
-                incomeRepository.findByUser(user.get());
+        double savedAmount = goal.getSavedAmount() != null
+                ? goal.getSavedAmount()
+                : 0.0;
 
-        List<Expense> expenses =
-                expenseRepository.findByUser(user.get());
+        double targetAmount = goal.getTargetAmount() != null
+                ? goal.getTargetAmount()
+                : 0.0;
 
-        double totalIncome = 0;
-        double totalExpense = 0;
+        double progress = targetAmount > 0
+                ? (savedAmount / targetAmount) * 100
+                : 0.0;
 
-        for (Income income : incomes) {
-            totalIncome += income.getAmount();
-        }
+        GoalProgressResponse response = new GoalProgressResponse();
 
-        for (Expense expense : expenses) {
-            totalExpense += expense.getAmount();
-        }
-
-        double currentSavings =
-                totalIncome - totalExpense;
-
-        double progress =
-                (currentSavings / goal.getTargetAmount())
-                        * 100;
-
-        GoalProgressResponse response =
-                new GoalProgressResponse();
-
-        response.setGoalName(
-                goal.getGoalName());
-
-        response.setTargetAmount(
-                goal.getTargetAmount());
-
-        response.setCurrentSavings(
-                currentSavings);
-
-        response.setProgress(
-                progress);
+        response.setGoalName(goal.getGoalName());
+        response.setTargetAmount(targetAmount);
+        response.setCurrentSavings(savedAmount);
+        response.setProgress(progress);
 
         return response;
     }

@@ -15,5 +15,7 @@ public class GoalRequest {
     @NotNull(message = "Target amount is required")
     private Double targetAmount;
 
+    private Double savedAmount = 0.0;
+
     private String description;
 }
